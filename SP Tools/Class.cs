@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -25,7 +26,7 @@ namespace SPTools
                 }
                 else
                 {
-                    if (response.StatusCode.ToString() == "Unauthorized")
+                    if (response.StatusCode == HttpStatusCode.Unauthorized)
                         return "Error in ID or Card Token";
                     else
                         return "Error: " + response.StatusCode.ToString();
@@ -41,18 +42,18 @@ namespace SPTools
         /// <param name="card">Номер карты получателя.</param>
         /// <param name="cound">Колличество АРов.</param>
         /// <param name="comment">Комментарий.</param>
-        public static async Task<string> Transaction(string id, string token, int card, int cound, string comment = "-")
+        public static async Task<string> Transaction(string id, string token, int card, int cound, string comment = "Нет комментария")
         {
             using (HttpClient client = new HttpClient())
             {
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Convert.ToBase64String(Encoding.UTF8.GetBytes(id + ":" + token)));
-                StringContent content = new StringContent("{\"receiver\":" + " \"" + card + "\"," + " \"amount\": " + cound + ", " + "\"comment\":" + " \"" + comment + "\"}", Encoding.UTF8, "application/json");
+                StringContent content = new StringContent($"{{\"receiver\": \"{card}\", \"amount\": {cound}, \"comment\": \"{comment}\"}}", Encoding.UTF8, "application/json");
                 HttpResponseMessage response = await client.PostAsync("https://spworlds.ru/api/public/transactions", content);
                 if (response.IsSuccessStatusCode)
                     return "OK";
                 else
                 {
-                    if (response.StatusCode.ToString() == "Unauthorized")
+                    if (response.StatusCode == HttpStatusCode.Unauthorized)
                         return "Error in ID or Card Token";
                     else
                         return "Error: " + response.StatusCode.ToString();
@@ -71,7 +72,7 @@ namespace SPTools
         {
             using (HttpClient client = new HttpClient())
             {
-                StringContent content = new StringContent("{\"cound\":" + " \"" + cound + "\"," + " \"amount\": " + cound + ", " + "\"redirectUrl\":" + " \"" + redirectUrl + "\", " + "\"webhookUrl\":" + "\"" + webhookUrl + "\", " + "\"data\":" + " \"" + data + "\",", Encoding.UTF8, "application/json");
+                StringContent content = new StringContent($"{{\"cound\": \"{cound}\", \"amount\": {cound}, \"redirectUrl\": \"{redirectUrl}\", \"webhookUrl\": \"{webhookUrl}\", \"data\": \"{data}\"}}", Encoding.UTF8, "application/json");
                 HttpResponseMessage response = await client.PostAsync("https://spworlds.ru/api/public/payment", content);
                 if (response.IsSuccessStatusCode)
                 {
@@ -104,7 +105,7 @@ namespace SPTools
                 }
                 else
                 {
-                    if (response.StatusCode.ToString() == "NotFound")
+                    if (response.StatusCode == HttpStatusCode.NotFound)
                         return "User not found";
                     else
                         return "Error: " + response.StatusCode.ToString();
