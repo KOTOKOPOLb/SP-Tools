@@ -4,9 +4,13 @@ C# Библиотека для облегчения взаимодействия
 
 ## Установка
 
-Вы можете установить эту библиотеку через [NuGet](https://www.nuget.org/packages/KOTOKOPOLb.SPTools/),
-установить через DotNet `dotnet add package KOTOKOPOLb.SPTools`
-или скачать библиотеку из [релизов](https://github.com/KOTOKOPOlb/SP-Tools/releases)
+Вы можете установить эту библиотеку через:
+1) [NuGet](https://www.nuget.org/packages/KOTOKOPOLb.SPTools/)
+2) DotNet 
+```bash
+dotnet add package KOTOKOPOLb.SPTools
+```
+3) Скачать библиотеку из [релизов](https://github.com/KOTOKOPOlb/SP-Tools/releases)
 
 ## Как использовать?
 
