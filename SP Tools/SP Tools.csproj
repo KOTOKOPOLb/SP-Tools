@@ -5,7 +5,7 @@
     <RootNamespace>SP_Tools</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Title>SP Tools</Title>
     <Version>1.0</Version>
     <Company>KOTOKOPOLb</Company>
@@ -15,10 +15,19 @@
     <FileVersion>1.0</FileVersion>
     <PackageId>KOTOKOPOLb.SPTools</PackageId>
     <Copyright>MIT</Copyright>
+    <PackageProjectUrl>https://github.com/KOTOKOPOlb/SP-Tools</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>

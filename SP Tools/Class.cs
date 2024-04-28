@@ -7,109 +7,266 @@ namespace SPTools
 {
     public class SPTool
     {
+        private static HttpClient GetClient(string cardid, string token)
+        {
+            if (string.IsNullOrEmpty(cardid) || string.IsNullOrEmpty(token))
+            {
+                throw new ArgumentException("Card ID and Token cannot be empty");
+            }
+
+            HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Convert.ToBase64String(Encoding.UTF8.GetBytes(cardid + ":" + token)));
+            return client;
+        }
+
         /// <summary>
         /// Получает баланс карты.
         /// </summary>
-        /// <param name="id">ID Карты.</param>
+        /// <param name="cardid">ID Карты.</param>
         /// <param name="token">Токен карты.</param>
-        public static async Task<string> GetBalance(string id, string token)
+        public static async Task<string> GetBalance(string cardid, string token)
         {
-            using (HttpClient client = new HttpClient())
+            try
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Convert.ToBase64String(Encoding.UTF8.GetBytes(id + ":" + token)));
-                HttpResponseMessage response = await client.GetAsync("https://spworlds.ru/api/public/card");
-                if (response.IsSuccessStatusCode)
+                using (HttpClient client = GetClient(cardid, token))
                 {
+                    HttpResponseMessage response = await client.GetAsync("https://spworlds.ru/api/public/card");
+                    response.EnsureSuccessStatusCode();
                     string responseBody = await response.Content.ReadAsStringAsync();
-                    dynamic jsonObject = JsonConvert.DeserializeObject(responseBody);
+                    var jsonObject = JsonConvert.DeserializeObject<dynamic>(responseBody);
                     return jsonObject.balance;
                 }
-                else
-                {
-                    if (response.StatusCode == HttpStatusCode.Unauthorized)
-                        return "Error in ID or Card Token";
-                    else
-                        return "Error: " + response.StatusCode.ToString();
-                }
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new Exception("Error: " + ex.StatusCode);
             }
         }
 
         /// <summary>
         /// Перевод с одной карты на другую.
         /// </summary>
-        /// <param name="id">ID Карты.</param>
+        /// <param name="cardid">ID Карты.</param>
         /// <param name="token">Токен карты.</param>
         /// <param name="card">Номер карты получателя.</param>
         /// <param name="cound">Колличество АРов.</param>
         /// <param name="comment">Комментарий.</param>
-        public static async Task<string> Transaction(string id, string token, int card, int cound, string comment = "Нет комментария")
+        public static async Task<string> Transaction(string cardid, string token, int card, int count, string comment = "Нет комментария")
         {
-            using (HttpClient client = new HttpClient())
+            try
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Convert.ToBase64String(Encoding.UTF8.GetBytes(id + ":" + token)));
-                StringContent content = new StringContent($"{{\"receiver\": \"{card}\", \"amount\": {cound}, \"comment\": \"{comment}\"}}", Encoding.UTF8, "application/json");
-                HttpResponseMessage response = await client.PostAsync("https://spworlds.ru/api/public/transactions", content);
-                if (response.IsSuccessStatusCode)
-                    return "OK";
-                else
+                using (HttpClient client = GetClient(cardid, token))
                 {
-                    if (response.StatusCode == HttpStatusCode.Unauthorized)
-                        return "Error in ID or Card Token";
-                    else
-                        return "Error: " + response.StatusCode.ToString();
+                    StringContent content = new StringContent(JsonConvert.SerializeObject(new { receiver = card, amount = count, comment }), Encoding.UTF8, "application/json");
+                    HttpResponseMessage response = await client.PostAsync("https://spworlds.ru/api/public/transactions", content);
+                    response.EnsureSuccessStatusCode();
+                    string responseBody = await response.Content.ReadAsStringAsync();
+                    dynamic jsonObject = JsonConvert.DeserializeObject(responseBody);
+                    return jsonObject.balance;
                 }
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new Exception("Error: " + ex.StatusCode);
             }
         }
 
         /// <summary>
         /// Создаёт ссылку для оплаты.
         /// </summary>
+        /// <param name="cardid">ID Карты на которую придут АРы.</param>
+        /// <param name="token">Токен карты на которую придут АРы.</param>
         /// <param name="cound">Колличество АРов.</param>
         /// <param name="redirectUrl">URL страницы, на которую попадет пользователь после оплаты.</param>
-        /// <param name="webhookUrl">URL, куда наш сервер направит запрос, чтобы оповестить ваш сервер об успешной оплате.</param>
+        /// <param name="webhookUrl">URL, куда сервер направит запрос, чтобы оповестить ваш сервер об успешной оплате.</param>
         /// <param name="data">Строка до 100 символов, сюда можно поместить любые полезные данных.</param>
-        public static async Task<string> Payment(int cound, string redirectUrl, string webhookUrl, string data)
+        public static async Task<string> Payment(string cardid, string token, List<Item> items, string redirectUrl, string webhookUrl, string data)
         {
-            using (HttpClient client = new HttpClient())
+            try
             {
-                StringContent content = new StringContent($"{{\"cound\": \"{cound}\", \"amount\": {cound}, \"redirectUrl\": \"{redirectUrl}\", \"webhookUrl\": \"{webhookUrl}\", \"data\": \"{data}\"}}", Encoding.UTF8, "application/json");
-                HttpResponseMessage response = await client.PostAsync("https://spworlds.ru/api/public/payment", content);
-                if (response.IsSuccessStatusCode)
+                using (HttpClient client = GetClient(cardid, token))
                 {
+                    dynamic requestBody = new
+                    {
+                        items,
+                        redirectUrl,
+                        webhookUrl,
+                        data
+                    };
+
+                    StringContent content = new StringContent(JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
+                    HttpResponseMessage response = await client.PostAsync("https://spworlds.ru/api/public/payments", content);
+
+                    response.EnsureSuccessStatusCode();
                     string responseBody = await response.Content.ReadAsStringAsync();
                     dynamic jsonObject = JsonConvert.DeserializeObject(responseBody);
                     return jsonObject.url;
                 }
-                else
-                    return "Error: " + response.StatusCode.ToString();
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new Exception("Error: " + ex.StatusCode);
             }
         }
 
-        /// <summary>
-        /// Получает ник игрока по Discord ID.
-        /// </summary>
-        /// <param name="id">ID Карты.</param>
-        /// <param name="token">Токен карты.</param>
-        /// <param name="DiscordID">Discord ID игрока.</param>
-        public static async Task<string> GetUserName(string id, string token, long DiscordID)
+        public class Item
         {
-            using (HttpClient client = new HttpClient())
+            public string name { get; set; }
+            public int count { get; set; }
+            public int price { get; set; }
+            public string comment { get; set; }
+        }
+
+        /// <summary>
+        /// Получает ник игрока по ID в Discord.
+        /// </summary>
+        /// <param name="cardid">ID Карты.</param>
+        /// <param name="token">Токен карты.</param>
+        /// <param name="DiscordId">ID пользователя в Discord.</param>
+        public static async Task<(string nickname, string uuid)> GetUserName(string cardid, string token, long DiscordId)
+        {
+            using (HttpClient client = GetClient(cardid, token))
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Convert.ToBase64String(Encoding.UTF8.GetBytes(id + ":" + token)));
-                HttpResponseMessage response = await client.GetAsync("https://spworlds.ru/api/public/users/" + DiscordID.ToString());
+                HttpResponseMessage response = await client.GetAsync("https://spworlds.ru/api/public/users/" + DiscordId.ToString());
                 if (response.IsSuccessStatusCode)
                 {
                     string responseBody = await response.Content.ReadAsStringAsync();
                     dynamic jsonObject = JsonConvert.DeserializeObject(responseBody);
-                    return jsonObject.username;
+                    string username = jsonObject.username;
+                    string uuid = jsonObject.uuid;
+                    return (username, uuid);
                 }
                 else
                 {
                     if (response.StatusCode == HttpStatusCode.NotFound)
-                        return "User not found";
+                         throw new Exception("Error: User not found");
                     else
-                        return "Error: " + response.StatusCode.ToString();
+                        throw new Exception("Error: " + response.StatusCode);
                 }
+            }
+        }
+
+        public class Card
+        {
+            public string Name { get; set; }
+            public string ID { get; set; }
+        }
+
+        /// <summary>
+        /// Получение карт игрока.
+        /// </summary>
+        /// <param name="cardid">ID Карты.</param>
+        /// <param name="token">Токен карты.</param>
+        /// <param name="nickname">Ник пользователя.</param>
+        public static async Task<List<Card>> GetUserCards(string cardid, string token, string nickname)
+        {
+            try
+            {
+                using (HttpClient client = GetClient(cardid, token))
+                {
+                    HttpResponseMessage response = await client.GetAsync($"https://spworlds.ru/api/public/accounts/{nickname}/cards");
+                    response.EnsureSuccessStatusCode();
+                    string responseBody = await response.Content.ReadAsStringAsync();
+                    dynamic jsonObject = JsonConvert.DeserializeObject(responseBody);
+
+                    List<Card> cards = new List<Card>();
+
+                    foreach (var card in jsonObject)
+                    {
+                        Card newCard = new Card
+                        {
+                            Name = card.name,
+                            ID = card.number
+                        };
+
+                        cards.Add(newCard);
+                    }
+
+                    return cards;
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new Exception("Error: " + ex.StatusCode);
+            }
+        }
+
+        public class Account
+        {
+            public string id { get; set; }
+            public string username { get; set; }
+            public string minecraftUUID { get; set; }
+            public string status { get; set; }
+            public List<string> roles { get; set; }
+            public City city { get; set; }
+            public List<Cards> cards { get; set; }
+            public string createdAt { get; set; }
+        }
+
+        public class City
+        {
+            public string id { get; set; }
+            public string name { get; set; }
+            public string description { get; set; }
+            public int x { get; set; }
+            public int z { get; set; }
+            public bool isMayor { get; set; }
+        }
+
+        public class Cards
+        {
+            public string id { get; set; }
+            public string name { get; set; }
+            public string number { get; set; }
+            public int color { get; set; }
+        }
+
+        /// <summary>
+        /// Информация по токену.
+        /// </summary>
+        /// <param name="cardid">ID Карты.</param>
+        /// <param name="token">Токен карты.</param>
+        public static async Task<Account> GetInfo(string cardid, string token)
+        {
+            try
+            {
+                using (HttpClient client = GetClient(cardid, token))
+                {
+                    HttpResponseMessage response = await client.GetAsync("https://spworlds.ru/api/public/accounts/me");
+                    response.EnsureSuccessStatusCode();
+                    string responseBody = await response.Content.ReadAsStringAsync();
+                    return JsonConvert.DeserializeObject<Account>(responseBody);
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new Exception("Error: " + ex.StatusCode);
+            }
+        }
+
+        /// <summary>
+        /// Изменение вебхука карты.
+        /// </summary>
+        /// <param name="cardid">ID Карты.</param>
+        /// <param name="token">Токен карты.</param>
+        /// <param name="url">Адрес, куда отправлять webhook.</param>
+        public static async Task<(string id, string webhook)> ChangeWebhook(string cardid, string token, string url)
+        {
+            try
+            {
+                using (HttpClient client = GetClient(cardid, token))
+                {
+                    StringContent content = new StringContent(JsonConvert.SerializeObject(new { url }), Encoding.UTF8, "application/json");
+                    HttpResponseMessage response = await client.PostAsync("https://spworlds.ru/api/public/card/webhook", content);
+                    response.EnsureSuccessStatusCode();
+                    string responseBody = await response.Content.ReadAsStringAsync();
+                    dynamic jsonObject = JsonConvert.DeserializeObject(responseBody);
+                    return (jsonObject.id, jsonObject.webhook);
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new Exception("Error: " + ex.StatusCode);
             }
         }
     }
